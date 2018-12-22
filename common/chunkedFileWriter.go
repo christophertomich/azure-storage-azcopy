@@ -26,7 +26,6 @@ import (
 	"errors"
 	"io"
 	"math"
-	"math/rand"
 	"sync/atomic"
 	"time"
 )
@@ -113,22 +112,11 @@ const maxDesirableActiveChunks = 20 		// TODO: can we find a sensible way to rem
 // from the cache limiter, which is also in this struct.
 func (w *chunkedFileWriter) WaitToScheduleChunk(ctx context.Context, id ChunkID, chunkSize int64) error{
 	w.chunkLogger.LogChunkStatus(id, EWaitReason.RAMToSchedule())
-	for {
-		// Proceed if there's room in the cache
-		if w.tryAddMemoryAllocation(chunkSize) {
-			atomic.AddInt32(&w.activeChunkCount, 1)
-			return nil // the cache limiter has accepted our addition
-		}
-
-		// else wait and repeat
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Duration(2 * float32(time.Second) * rand.Float32())):
-			// Nothing to do, just loop around again
-			// The wait is randomized to prevent the establishment of repetitive oscillations in cache size
-		}
+	err := w.cacheLimiter.WaitUntilAddBytes(ctx, chunkSize, w.shouldUseRelaxedRamThreshold)
+	if err == nil {
+		atomic.AddInt32(&w.activeChunkCount, 1)
 	}
+	return err
 }
 
 // Threadsafe method to enqueue a new chunk for processing
@@ -259,20 +247,19 @@ func (w *chunkedFileWriter)saveOneChunk(chunk fileChunk) error{
 	return nil
 }
 
-// Tries to add the specified number of bytes to the count of in-use bytes.
 // We use a less strict cache limit
 // if we have relatively few chunks in progress for THIS file. Why? To try to spread
 // the work in progress across a larger number of files, instead of having it
 // get concentrated in one. I.e. when we have a lot of in-flight chunks for this file,
 // we'll tend to prefer allocating for other files, with fewer in-flight
-func (w *chunkedFileWriter) tryAddMemoryAllocation(chunkSize int64) bool {
-	return w.cacheLimiter.AddIfBelowStrictLimit(chunkSize) ||
-		(atomic.LoadInt32(&w.activeChunkCount) <= maxDesirableActiveChunks && w.cacheLimiter.AddIfBelowRelaxedLimit(chunkSize))
+func (w *chunkedFileWriter) shouldUseRelaxedRamThreshold() bool {
+	return atomic.LoadInt32(&w.activeChunkCount) <= maxDesirableActiveChunks
 }
+
 
 // Are we currently in a memory-constrained situation?
 func (w *chunkedFileWriter) haveMemoryPressure(chunkSize int64) bool {
-	didAdd := w.tryAddMemoryAllocation(chunkSize)
+	didAdd := w.cacheLimiter.TryAddBytes(chunkSize, w.shouldUseRelaxedRamThreshold())
 	if didAdd {
 		w.cacheLimiter.RemoveBytes(chunkSize) // remove immediately, since this was only a test
 	}
