@@ -70,7 +70,7 @@ func RemoteToLocal(jptm IJobPartTransferMgr, p pipeline.Pipeline, pacer *pacer, 
 			jptm.LogDownloadError(info.Source, info.Destination, "Empty File Creation error "+err.Error(), 0)
 			jptm.SetStatus(common.ETransferStatus.Failed())
 		}
-		epilogueWithCleanup(jptm, nil, nil) // need standard epilogue, rather than a quick exit, so we can preserve modification dates
+		epilogueWithCleanupDownload(jptm, nil, nil) // need standard epilogue, rather than a quick exit, so we can preserve modification dates
 		return
 	}
 
@@ -83,7 +83,7 @@ func RemoteToLocal(jptm IJobPartTransferMgr, p pipeline.Pipeline, pacer *pacer, 
 	if err != nil {
 		jptm.LogDownloadError(info.Source, info.Destination, "File Creation Error "+err.Error(), 0)
 		jptm.SetStatus(common.ETransferStatus.Failed())
-		epilogueWithCleanup(jptm, nil, nil)
+		epilogueWithCleanupDownload(jptm, nil, nil)
 		return
 	}
 	// TODO: Question: do we need to Stat the file, to check its size, after explicitly making it with the desired size?
@@ -124,7 +124,7 @@ func RemoteToLocal(jptm IJobPartTransferMgr, p pipeline.Pipeline, pacer *pacer, 
 
 	// step 5c: tell jptm what to expect, and how to clean up at the end
 	jptm.SetNumberOfChunks(numChunks)
-	jptm.SetActionAfterLastChunk(func(){ epilogueWithCleanup(jptm, dstFile, dstWriter)})
+	jptm.SetActionAfterLastChunk(func(){ epilogueWithCleanupDownload(jptm, dstFile, dstWriter)})
 
 	// step 6: go through the blob range and schedule download chunk jobs
 	// TODO: currently, the epilogue will only run if the number of completed chunks = numChunks.
@@ -159,7 +159,7 @@ func RemoteToLocal(jptm IJobPartTransferMgr, p pipeline.Pipeline, pacer *pacer, 
 }
 
 // complete epilogue. Handles both success and failure
-func epilogueWithCleanup(jptm IJobPartTransferMgr, activeDstFile *os.File, cw common.ChunkedFileWriter){
+func epilogueWithCleanupDownload(jptm IJobPartTransferMgr, activeDstFile *os.File, cw common.ChunkedFileWriter){
 	info := jptm.Info()
 
 	if activeDstFile != nil {

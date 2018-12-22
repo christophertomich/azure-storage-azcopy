@@ -38,17 +38,17 @@ var EWaitReason = WaitReason(0)
 
 type WaitReason string
 
-func (WaitReason) RAMToSchedule() WaitReason    { return WaitReason("RAM") }
-func (WaitReason) WorkerGR() WaitReason         { return WaitReason("GR") }
-func (WaitReason) HeaderResponse() WaitReason   { return WaitReason("Head") }
-func (WaitReason) BodyResponse() WaitReason     { return WaitReason("Body") }
-func (WaitReason) BodyReReadDueToMem() WaitReason     { return WaitReason("BodyReRead-LowRam") }
-func (WaitReason) BodyReReadDueToSpeed() WaitReason   { return WaitReason("BodyReRead-TooSlow") }
-func (WaitReason) WriterChannel() WaitReason 	{ return WaitReason("Writer") }
-func (WaitReason) PriorChunk() WaitReason 		{ return WaitReason("Prior") }
-func (WaitReason) Disk() WaitReason 			{ return WaitReason("Disk") }
-func (WaitReason) ChunkDone() WaitReason 		{ return WaitReason("Done") }
-func (WaitReason) Cancelled() WaitReason 		{ return WaitReason("Cancelled") }
+func (WaitReason) RAMToSchedule() WaitReason    { return WaitReason("RAM") }  // both upload and download
+func (WaitReason) WorkerGR() WaitReason         { return WaitReason("GR") }   // both
+func (WaitReason) HeaderResponse() WaitReason   { return WaitReason("Head") } // down only
+func (WaitReason) BodyResponse() WaitReason     { return WaitReason("Body") } // both
+func (WaitReason) BodyReReadDueToMem() WaitReason     { return WaitReason("BodyReRead-LowRam") } // down only
+func (WaitReason) BodyReReadDueToSpeed() WaitReason   { return WaitReason("BodyReRead-TooSlow") } // down only
+func (WaitReason) WriterChannel() WaitReason 	{ return WaitReason("Writer") }  // down only
+func (WaitReason) PriorChunk() WaitReason 		{ return WaitReason("Prior") }   // down only
+func (WaitReason) Disk() WaitReason 			{ return WaitReason("Disk") }    // both
+func (WaitReason) ChunkDone() WaitReason 		{ return WaitReason("Done") }    // both
+func (WaitReason) Cancelled() WaitReason 		{ return WaitReason("Cancelled") } // both
 
 func (wr WaitReason) String() string{
 	return string(wr)   // avoiding reflection here, for speed, since will be called a lot
